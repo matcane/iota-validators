@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -9,6 +10,8 @@ import "@/global.css";
 import "react-native-reanimated";
 
 SplashScreen.preventAutoHideAsync();
+
+const queryClient = new QueryClient({});
 
 function RootNavigation() {
   return (
@@ -24,11 +27,13 @@ export default function Root() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <RootNavigation />
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <SafeAreaProvider>
+          <StatusBar style="dark" />
+          <RootNavigation />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 }

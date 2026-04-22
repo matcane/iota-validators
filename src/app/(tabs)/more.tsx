@@ -1,12 +1,9 @@
-import { Text, View } from "react-native";
+import React from "react";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function MoreTab() {
   const insets = useSafeAreaInsets();
 
-  return (
-    <View className="flex-1 items-center bg-background" style={{ paddingTop: insets.top }}>
-      <Text className="text-amber-300">More</Text>
-    </View>
-  );
+  return <View className="flex-1" style={{ paddingTop: insets.top }} />;
 }

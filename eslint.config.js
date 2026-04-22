@@ -10,6 +10,7 @@ module.exports = defineConfig([
   importPlugin.configs["react-native"],
   pluginQuery.configs["flat/recommended-strict"],
   {
+    ignores: ["worker"],
     rules: {
       "prettier/prettier": "error",
       "import/order": [
