@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import "@/global.css";
+
 import "react-native-reanimated";
 
 SplashScreen.preventAutoHideAsync();
@@ -30,7 +31,7 @@ export default function Root() {
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
         <SafeAreaProvider>
-          <StatusBar style="dark" />
+          <StatusBar style="light" />
           <RootNavigation />
         </SafeAreaProvider>
       </GestureHandlerRootView>

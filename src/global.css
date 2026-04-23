@@ -1,2 +1,14 @@
 @import "tailwindcss";
 @import "uniwind";
+
+@theme {
+  --color-bg: #0f0f19;
+  --color-surface: #171c2f;
+
+  --color-tab-active: #f7f7f7;
+  --color-tab-inactive: #7686a0;
+
+  --color-text: #6e7e97;
+
+  --color-primary: #5f65f7;
+}

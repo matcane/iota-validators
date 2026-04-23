@@ -44,6 +44,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       package: PACKAGE_NAME,
     },
     plugins: [
+      "expo-asset",
       "expo-router",
       [
         "expo-build-properties",
