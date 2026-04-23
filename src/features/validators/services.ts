@@ -49,7 +49,7 @@ export function latestCheckpointQueryOptions(isSystemState: boolean, isvalidator
             const sequenceNumber = await iotaClient.getLatestCheckpointSequenceNumber();
             return iotaClient.getCheckpoint({ id: sequenceNumber });
           },
-          refetchInterval: 5_000,
+          refetchInterval: 100_000,
           staleTime: 0,
         })
       : {

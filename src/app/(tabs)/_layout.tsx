@@ -4,17 +4,15 @@ import { useResolveClassNames } from "uniwind";
 
 export default function TabsLayout() {
   const headerStyle = useResolveClassNames("bg-bg");
-  const borderBottomWidth = useResolveClassNames("border-b-[0.2]").borderBottomWidth;
   const tabBarStyle = useResolveClassNames("bg-surface border-surface rounded-t-[32] absolute");
   const headerTintColor = useResolveClassNames("text-tab-active").color as string;
   const tabBarActiveTintColor = useResolveClassNames("text-tab-active").color as string;
   const tabBarInactiveTintColor = useResolveClassNames("text-tab-inactive").color as string;
 
-  console.log(borderBottomWidth);
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { ...headerStyle, borderBottomWidth: 0.2 },
+        headerStyle,
         headerTintColor,
         tabBarStyle,
         tabBarActiveTintColor,
@@ -29,6 +27,15 @@ export default function TabsLayout() {
           title: "Home",
           tabBarIcon: ({ size, color }) => (
             <MaterialCommunityIcons name="home" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="validators"
+        options={{
+          title: "Validators",
+          tabBarIcon: ({ size, color }) => (
+            <MaterialCommunityIcons name="dots-horizontal-circle" size={size} color={color} />
           ),
         }}
       />

@@ -3,8 +3,16 @@ import { useIsFocused } from "@react-navigation/native";
 import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
 import { Renderer, THREE } from "expo-three";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 import ThreeGlobe from "three-globe";
 import { useResolveClassNames } from "uniwind";
@@ -29,6 +37,9 @@ function clampCameraZ(z: number) {
 }
 
 export default function HomeTab() {
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const globeViewportHeight = Math.round(windowHeight * 0.75);
   const activityColor = useResolveClassNames("text-primary").color;
   const isFocused = useIsFocused();
   const [isGlobeReady, setIsGlobeReady] = useState(false);
@@ -194,19 +205,32 @@ export default function HomeTab() {
   // }
 
   return (
-    <View className="flex-1 bg-bg">
+    <ScrollView contentContainerClassName="grow bg-bg pb-[80]">
       {isFocused ? (
-        <GestureDetector gesture={globeGestures}>
-          <View className="flex-1">
-            <GLView className="flex-1" onContextCreate={onContextCreate} />
-            {!isGlobeReady && (
-              <View className="absolute inset-0 items-center justify-center" pointerEvents="none">
-                <ActivityIndicator size="large" color={activityColor} />
-              </View>
-            )}
-          </View>
-        </GestureDetector>
+        <>
+          <GestureDetector gesture={globeGestures}>
+            <View className="w-full" style={{ height: globeViewportHeight }}>
+              <GLView className="flex-1" onContextCreate={onContextCreate} />
+              {!isGlobeReady && (
+                <View className="absolute inset-0 items-center justify-center" pointerEvents="none">
+                  <ActivityIndicator size="large" color={activityColor} />
+                </View>
+              )}
+            </View>
+          </GestureDetector>
+          <View className="px-4 gap-2"></View>
+        </>
       ) : null}
-    </View>
+
+      <View className="z-10 w-full h-auto absolute" style={{ top: insets.top }}>
+        <View className="grow justify-center items-center">
+          <Pressable className="flex-row gap-2 bg-card p-6 rounded-4xl">
+            <Text className="text-white">validators 200</Text>
+            <Text className="text-white">countries 25</Text>
+            <Text className="text-white">cities 56</Text>
+          </Pressable>
+        </View>
+      </View>
+    </ScrollView>
   );
 }
