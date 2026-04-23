@@ -13,6 +13,7 @@ const ALLOWED_RPC_METHODS = new Set<string>([
   "iotax_getLatestIotaSystemStateV2",
   "iota_getCheckpoint",
   "iota_getLatestCheckpointSequenceNumber",
+  "iota_multiGetTransactionBlocks",
   "iota_getProtocolConfig",
 ]);
 

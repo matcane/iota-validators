@@ -47,9 +47,24 @@ export function latestCheckpointQueryOptions(isSystemState: boolean, isvalidator
           queryKey: ["latestCheckpoint"],
           queryFn: async () => {
             const sequenceNumber = await iotaClient.getLatestCheckpointSequenceNumber();
-            return iotaClient.getCheckpoint({ id: sequenceNumber });
+            const lastCheckpoint = await iotaClient.getCheckpoint({ id: sequenceNumber });
+            const blocks = await iotaClient.multiGetTransactionBlocks({
+              digests: lastCheckpoint.transactions,
+              options: { showEffects: true },
+            });
+            const statusByDigest = new Map(
+              blocks.map((tx) => [tx.digest, tx.effects?.status.status] as const),
+            );
+            const txsWithStatus = lastCheckpoint.transactions.map((digest) => ({
+              digest,
+              status: statusByDigest.get(digest),
+            }));
+
+            console.log(txsWithStatus);
+
+            return lastCheckpoint;
           },
-          refetchInterval: 100_000,
+          refetchInterval: 10_000,
           staleTime: 0,
         })
       : {

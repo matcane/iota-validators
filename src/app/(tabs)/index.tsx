@@ -1,29 +1,22 @@
-// import { useQuery } from "@tanstack/react-query";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
 import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
 import { Renderer, THREE } from "expo-three";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 import ThreeGlobe from "three-globe";
 import { useResolveClassNames } from "uniwind";
 
+import {
+  latestCheckpointQueryOptions,
+  validatorsGeoQueryOptions,
+  validatorsQueryOptions,
+} from "@/features/validators/services";
 import { getEarthNightPixelsIfReady, preloadEarthNightPixels } from "@/lib/globe-earth-pixels";
-
-// import {
-//   latestCheckpointQueryOptions,
-//   validatorsGeoQueryOptions,
-//   validatorsQueryOptions,
-// } from "@/features/validators/services";
 
 const GLOBE_PAN_ROTATION_SENSITIVITY = 0.004;
 const GLOBE_AUTO_ROTATE_RAD_PER_SEC = 0.16;
@@ -38,8 +31,9 @@ function clampCameraZ(z: number) {
 
 export default function HomeTab() {
   const insets = useSafeAreaInsets();
+  const bottomTabHeight = useBottomTabBarHeight();
   const { height: windowHeight } = useWindowDimensions();
-  const globeViewportHeight = Math.round(windowHeight * 0.75);
+  const globeViewportHeight = Math.round(windowHeight * 0.7);
   const activityColor = useResolveClassNames("text-primary").color;
   const isFocused = useIsFocused();
   const [isGlobeReady, setIsGlobeReady] = useState(false);
@@ -185,27 +179,27 @@ export default function HomeTab() {
     render();
     setIsGlobeReady(true);
   };
-  // const systemQuery = useQuery({ ...validatorsQueryOptions(), enabled: false });
-  // const geoQuery = useQuery(validatorsGeoQueryOptions(systemQuery.data ?? null));
-  // const latestCheckpoint = useQuery(
-  //   latestCheckpointQueryOptions(!!systemQuery.data, !!geoQuery.data),
-  // );
+  const systemQuery = useQuery({ ...validatorsQueryOptions(), enabled: true });
+  const geoQuery = useQuery(validatorsGeoQueryOptions(systemQuery.data ?? null));
 
-  // console.log(!!systemQuery.data);
-  // console.log(!!geoQuery.data);
+  useQuery({
+    ...latestCheckpointQueryOptions(!!systemQuery.data, !!geoQuery.data),
+    enabled: isGlobeReady,
+  });
 
-  // console.log(latestCheckpoint.data);
+  if (systemQuery.isPending || geoQuery.isPending) {
+    return (
+      <View className="bg-bg absolute inset-0 items-center justify-center" pointerEvents="none">
+        <ActivityIndicator size="large" color={activityColor} />
+      </View>
+    );
+  }
 
-  // if (systemQuery.isPending || geoQuery.isPending) {
-  //   return (
-  //     <View className="grow items-center bg-[#0a0e14] text-amber-400">
-  //       <Text>Loading</Text>
-  //     </View>
-  //   );
-  // }
+  const countries = new Set(geoQuery.data?.map((item) => item.geo?.country));
+  const cities = new Set(geoQuery.data?.map((item) => item.geo?.city));
 
   return (
-    <ScrollView contentContainerClassName="grow bg-bg pb-[80]">
+    <ScrollView className="bg-transparent" contentContainerClassName="grow bg-bg pb-2">
       {isFocused ? (
         <>
           <GestureDetector gesture={globeGestures}>
@@ -218,19 +212,40 @@ export default function HomeTab() {
               )}
             </View>
           </GestureDetector>
-          <View className="px-4 gap-2"></View>
+
+          <View className="w-full h-auto absolute pr-2" style={{ top: insets.top }}>
+            <View className="grow justify-center items-end">
+              <View className="flex-col items-end gap-2 bg-card border-2 border-primary px-6 py-4 rounded-4xl">
+                <Text className="text-text">
+                  Validators
+                  <Text className="text-white"> {systemQuery.data?.committeeMembers.length}</Text>
+                </Text>
+                <Text className="text-text">
+                  Countries<Text className="text-white"> {countries.size}</Text>
+                </Text>
+                <Text className="text-text">
+                  Cities<Text className="text-white"> {cities.size}</Text>
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="w-full h-auto absolute pl-2" style={{ top: insets.top }}>
+            <View className="grow justify-center items-start">
+              <View className="flex-row gap-2 bg-card border-2 border-primary px-6 py-4 rounded-4xl">
+                <View className="flex-col items-end">
+                  <Text className="text-white">#{systemQuery.data?.epoch}</Text>
+                  <Text className="text-text">Epoch</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <View
+            className="flex-1 px-4 py-4 gap-2 bg-card rounded-t-3xl"
+            style={{ paddingBottom: bottomTabHeight }}></View>
         </>
       ) : null}
-
-      <View className="z-10 w-full h-auto absolute" style={{ top: insets.top }}>
-        <View className="grow justify-center items-center">
-          <Pressable className="flex-row gap-2 bg-card p-6 rounded-4xl">
-            <Text className="text-white">validators 200</Text>
-            <Text className="text-white">countries 25</Text>
-            <Text className="text-white">cities 56</Text>
-          </Pressable>
-        </View>
-      </View>
     </ScrollView>
   );
 }
