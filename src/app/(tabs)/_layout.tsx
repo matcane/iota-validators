@@ -35,16 +35,16 @@ export default function TabsLayout() {
         options={{
           title: "Validators",
           tabBarIcon: ({ size, color }) => (
-            <MaterialCommunityIcons name="dots-horizontal-circle" size={size} color={color} />
+            <MaterialCommunityIcons name="security" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="more"
         options={{
-          title: "More",
+          title: "Network",
           tabBarIcon: ({ size, color }) => (
-            <MaterialCommunityIcons name="dots-horizontal-circle" size={size} color={color} />
+            <MaterialCommunityIcons name="network" size={size} color={color} />
           ),
         }}
       />

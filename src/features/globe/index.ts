@@ -1,0 +1,1 @@
+export { onContextCreate } from "./scene";

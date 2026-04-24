@@ -1,251 +1,170 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
-import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
-import { Renderer, THREE } from "expo-three";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, useWindowDimensions, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { GLView } from "expo-gl";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { GestureDetector } from "react-native-gesture-handler";
+import Animated, { LinearTransition, ZoomIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { scheduleOnRN } from "react-native-worklets";
-import ThreeGlobe from "three-globe";
 import { useResolveClassNames } from "uniwind";
 
+import { onContextCreate } from "@/features/globe";
+import { GlobeBadge } from "@/features/globe/components";
+import { useGlobeRotation } from "@/features/globe/hooks";
+import { EpochRow } from "@/features/validators/components";
 import {
   latestCheckpointQueryOptions,
   validatorsGeoQueryOptions,
   validatorsQueryOptions,
 } from "@/features/validators/services";
-import { getEarthNightPixelsIfReady, preloadEarthNightPixels } from "@/lib/globe-earth-pixels";
+import { useHistoryStore } from "@/features/validators/store";
 
-const GLOBE_PAN_ROTATION_SENSITIVITY = 0.004;
-const GLOBE_AUTO_ROTATE_RAD_PER_SEC = 0.16;
+const CHECKPOINT_QUERY_DEBOUNCE_MS = 1000;
+const GLOBE_LINK_COUNT = 15;
 
-const CAMERA_Z_INITIAL = 300;
-const CAMERA_Z_MIN = 100;
-const CAMERA_Z_MAX = 500;
-
-function clampCameraZ(z: number) {
-  return Math.min(CAMERA_Z_MAX, Math.max(CAMERA_Z_MIN, z));
-}
+type GlobeLink = {
+  startLat: number;
+  startLng: number;
+  endLat: number;
+  endLng: number;
+  color: "#5f65f7";
+};
 
 export default function HomeTab() {
   const insets = useSafeAreaInsets();
   const bottomTabHeight = useBottomTabBarHeight();
-  const { height: windowHeight } = useWindowDimensions();
-  const globeViewportHeight = Math.round(windowHeight * 0.7);
+
   const activityColor = useResolveClassNames("text-primary").color;
   const isFocused = useIsFocused();
   const [isGlobeReady, setIsGlobeReady] = useState(false);
-  const globeMeshRef = useRef<THREE.Object3D | null>(null);
-  const autoRotateRef = useRef(true);
-  const cameraZRef = useRef(CAMERA_Z_INITIAL);
-  const pinchBaseCameraZRef = useRef(CAMERA_Z_INITIAL);
+  const [checkpointQueryEnabled, setCheckpointQueryEnabled] = useState(false);
 
-  const applyGlobePanDelta = useCallback((dx: number, dy: number) => {
-    const globe = globeMeshRef.current;
-    if (!globe) return;
-    globe.rotation.y += dx * GLOBE_PAN_ROTATION_SENSITIVITY;
-    globe.rotation.x += dy * GLOBE_PAN_ROTATION_SENSITIVITY;
-  }, []);
-
-  const pauseGlobeAutoRotate = useCallback(() => {
-    autoRotateRef.current = false;
-  }, []);
-
-  const resumeGlobeAutoRotate = useCallback(() => {
-    autoRotateRef.current = true;
-  }, []);
-
-  const beginCameraPinch = useCallback(() => {
-    pinchBaseCameraZRef.current = cameraZRef.current;
-    pauseGlobeAutoRotate();
-  }, [pauseGlobeAutoRotate]);
-
-  const applyCameraPinchScale = useCallback((scale: number) => {
-    if (scale <= 0) return;
-    cameraZRef.current = clampCameraZ(pinchBaseCameraZRef.current / scale);
-  }, []);
-
-  const panGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .onStart(() => {
-          scheduleOnRN(pauseGlobeAutoRotate);
-        })
-        .onChange((e) => {
-          scheduleOnRN(applyGlobePanDelta, e.changeX, e.changeY);
-        })
-        .onFinalize(() => {
-          scheduleOnRN(resumeGlobeAutoRotate);
-        }),
-    [applyGlobePanDelta, pauseGlobeAutoRotate, resumeGlobeAutoRotate],
-  );
-
-  const pinchGesture = useMemo(
-    () =>
-      Gesture.Pinch()
-        .onStart(() => {
-          scheduleOnRN(beginCameraPinch);
-        })
-        .onChange((e) => {
-          scheduleOnRN(applyCameraPinchScale, e.scale);
-        })
-        .onFinalize(() => {
-          scheduleOnRN(resumeGlobeAutoRotate);
-        }),
-    [applyCameraPinchScale, beginCameraPinch, resumeGlobeAutoRotate],
-  );
-
-  const globeGestures = useMemo(
-    () => Gesture.Simultaneous(panGesture, pinchGesture),
-    [panGesture, pinchGesture],
-  );
+  const { autoRotateRef, cameraDepthRef, globeGestures, globeObjRef } = useGlobeRotation();
 
   useEffect(() => {
     if (!isFocused) {
       setIsGlobeReady(false);
-      globeMeshRef.current = null;
+      globeObjRef.current = null;
     }
-  }, [isFocused]);
+  }, [globeObjRef, isFocused]);
 
-  const onContextCreate = async (gl: ExpoWebGLRenderingContext) => {
-    const { drawingBufferWidth: width, drawingBufferHeight: height } = gl;
-    const renderer = new Renderer({ gl });
-    renderer.setSize(width, height);
+  useEffect(() => {
+    if (!isFocused || !isGlobeReady) {
+      setCheckpointQueryEnabled(false);
+      return;
+    }
+    const id = setTimeout(() => setCheckpointQueryEnabled(true), CHECKPOINT_QUERY_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [isFocused, isGlobeReady]);
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0f0f19);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2.1);
-    scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 100);
-    directionalLight.position.set(100, 50, 50);
-    directionalLight.target.position.set(0, 0, 0);
-    scene.add(directionalLight.target);
-    scene.add(directionalLight);
-
-    const pixels = getEarthNightPixelsIfReady() ?? (await preloadEarthNightPixels());
-
-    const tex = new THREE.DataTexture(pixels.data, pixels.width, pixels.height, THREE.RGBAFormat);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.flipY = false;
-    tex.unpackAlignment = 1;
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    tex.generateMipmaps = false;
-    tex.needsUpdate = true;
-
-    const globeMat = new THREE.MeshPhongMaterial({
-      color: 0x1e3a5f,
-      shininess: 12,
-    });
-
-    globeMat.map = tex;
-    globeMat.color.set(0xffffff);
-    globeMat.shininess = 8;
-    globeMat.needsUpdate = true;
-
-    const myGlobe = new ThreeGlobe().globeMaterial(globeMat).showAtmosphere(true);
-    myGlobe.position.set(0, 0, 0);
-    scene.add(myGlobe);
-    globeMeshRef.current = myGlobe;
-
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      gl.drawingBufferWidth / gl.drawingBufferHeight,
-      0.1,
-      1000,
-    );
-    camera.position.set(0, 0, cameraZRef.current);
-    camera.lookAt(0, 0, 0);
-
-    let lastTime = performance.now();
-
-    const render = () => {
-      requestAnimationFrame(render);
-      const now = performance.now();
-      const dt = (now - lastTime) * 0.001;
-      lastTime = now;
-      camera.position.z = cameraZRef.current;
-      if (autoRotateRef.current) {
-        myGlobe.rotation.y -= dt * GLOBE_AUTO_ROTATE_RAD_PER_SEC;
-      }
-      renderer.render(scene, camera);
-      gl.endFrameEXP();
-    };
-
-    render();
-    setIsGlobeReady(true);
-  };
-  const systemQuery = useQuery({ ...validatorsQueryOptions(), enabled: true });
+  const systemQuery = useSuspenseQuery(validatorsQueryOptions());
   const geoQuery = useQuery(validatorsGeoQueryOptions(systemQuery.data ?? null));
+
+  const countriesCount = new Set(geoQuery.data?.map((item) => item.geo?.country));
+  const citiesCount = new Set(geoQuery.data?.map((item) => item.geo?.city));
+
+  const cities = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          (geoQuery.data ?? []).flatMap((item) => {
+            const geo = item.geo;
+            if (!geo) return [];
+            const { latitude, longitude } = geo;
+            const key = `${latitude},${longitude}`;
+            return [[key, { lat: latitude, lng: longitude, color: "#ffffff" }] as const];
+          }),
+        ).values(),
+      ),
+    [geoQuery.data],
+  );
+
+  const validatorCount = systemQuery.data?.committeeMembers.length ?? 0;
 
   useQuery({
     ...latestCheckpointQueryOptions(!!systemQuery.data, !!geoQuery.data),
-    enabled: isGlobeReady,
+    enabled: checkpointQueryEnabled,
   });
 
-  if (systemQuery.isPending || geoQuery.isPending) {
-    return (
-      <View className="bg-bg absolute inset-0 items-center justify-center" pointerEvents="none">
-        <ActivityIndicator size="large" color={activityColor} />
-      </View>
-    );
-  }
+  const links = useMemo((): GlobeLink[] => {
+    if (cities.length < 2) return [];
+    const out: GlobeLink[] = [];
+    for (let k = 0; k < GLOBE_LINK_COUNT; k++) {
+      let i = Math.floor(Math.random() * cities.length);
+      let j = Math.floor(Math.random() * cities.length);
+      while (j === i) j = Math.floor(Math.random() * cities.length);
+      const start = cities[i]!;
+      const end = cities[j]!;
+      out.push({
+        startLat: start.lat,
+        startLng: start.lng,
+        endLat: end.lat,
+        endLng: end.lng,
+        color: "#5f65f7",
+      });
+    }
+    return out;
+  }, [cities]);
 
-  const countries = new Set(geoQuery.data?.map((item) => item.geo?.country));
-  const cities = new Set(geoQuery.data?.map((item) => item.geo?.city));
+  const history = useHistoryStore((state) => state.history);
 
   return (
-    <ScrollView className="bg-transparent" contentContainerClassName="grow bg-bg pb-2">
-      {isFocused ? (
-        <>
-          <GestureDetector gesture={globeGestures}>
-            <View className="w-full" style={{ height: globeViewportHeight }}>
-              <GLView className="flex-1" onContextCreate={onContextCreate} />
-              {!isGlobeReady && (
-                <View className="absolute inset-0 items-center justify-center" pointerEvents="none">
-                  <ActivityIndicator size="large" color={activityColor} />
-                </View>
-              )}
-            </View>
-          </GestureDetector>
-
-          <View className="w-full h-auto absolute pr-2" style={{ top: insets.top }}>
-            <View className="grow justify-center items-end">
-              <View className="flex-col items-end gap-2 bg-card border-2 border-primary px-6 py-4 rounded-4xl">
-                <Text className="text-text">
-                  Validators
-                  <Text className="text-white"> {systemQuery.data?.committeeMembers.length}</Text>
-                </Text>
-                <Text className="text-text">
-                  Countries<Text className="text-white"> {countries.size}</Text>
-                </Text>
-                <Text className="text-text">
-                  Cities<Text className="text-white"> {cities.size}</Text>
-                </Text>
+    <ScrollView contentContainerClassName="grow bg-bg pb-2">
+      {isFocused && (
+        <GestureDetector gesture={globeGestures}>
+          <View className="w-full h-full">
+            <GLView
+              className="flex-1"
+              onContextCreate={(gl) =>
+                onContextCreate({
+                  gl,
+                  refs: { globeObjRef, autoRotateRef, cameraDepthRef },
+                  callbacks: { setIsGlobeReady },
+                  data: { cities, links },
+                })
+              }
+            />
+            {!isGlobeReady && (
+              <View className="absolute inset-0 items-center justify-center" pointerEvents="none">
+                <ActivityIndicator size="large" color={activityColor} />
               </View>
-            </View>
+            )}
           </View>
+        </GestureDetector>
+      )}
 
-          <View className="w-full h-auto absolute pl-2" style={{ top: insets.top }}>
-            <View className="grow justify-center items-start">
-              <View className="flex-row gap-2 bg-card border-2 border-primary px-6 py-4 rounded-4xl">
-                <View className="flex-col items-end">
-                  <Text className="text-white">#{systemQuery.data?.epoch}</Text>
-                  <Text className="text-text">Epoch</Text>
-                </View>
-              </View>
-            </View>
-          </View>
+      <GlobeBadge position="right" style={{ paddingTop: insets.top }}>
+        <EpochRow
+          row={{
+            label: "Epoch",
+            value: systemQuery.data?.epoch != null ? String(systemQuery.data.epoch) : "—",
+          }}
+        />
+        <EpochRow row={{ label: "Validators", value: String(validatorCount) }} />
+        <EpochRow row={{ label: "Countries", value: String(countriesCount.size) }} />
+        <EpochRow row={{ label: "Cities", value: String(citiesCount.size) }} />
+      </GlobeBadge>
 
-          <View
-            className="flex-1 px-4 py-4 gap-2 bg-card rounded-t-3xl"
-            style={{ paddingBottom: bottomTabHeight }}></View>
-        </>
-      ) : null}
+      <GlobeBadge position="stretch" style={{ bottom: bottomTabHeight + 16 }}>
+        <View className="w-full gap-3">
+          <Text className="text-xs uppercase tracking-wide text-tab-inactive">History</Text>
+          <Animated.View className="h-10 flex-row gap-1 justify-end overflow-hidden border-t border-white/10 pt-3">
+            {history.map((item) => (
+              <Animated.View
+                key={item.digest}
+                layout={LinearTransition.springify().duration(400)}
+                entering={ZoomIn.duration(380).springify()}>
+                <View
+                  className={`h-6 w-2 rounded-sm ${
+                    item.status === "success" ? "bg-emerald-400/90" : "bg-rose-500/90"
+                  }`}
+                />
+              </Animated.View>
+            ))}
+          </Animated.View>
+        </View>
+      </GlobeBadge>
     </ScrollView>
   );
 }

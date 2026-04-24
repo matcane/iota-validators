@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
@@ -21,7 +21,7 @@ export default function ValidatorDetailScreen() {
 
   const validator = JSON.parse(item) as ValidatorRpcFields;
 
-  const systemQuery = useQuery({ ...validatorsQueryOptions(), enabled: true });
+  const systemQuery = useSuspenseQuery(validatorsQueryOptions());
   const geoQuery = useQuery(validatorsGeoQueryOptions(systemQuery.data ?? null));
 
   const geoEntry = useMemo(

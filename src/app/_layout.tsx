@@ -8,6 +8,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useResolveClassNames } from "uniwind";
 
+import { preloadEarthNightPixels } from "@/lib/globe-earth-pixels";
+
 import "@/global.css";
 
 import "react-native-reanimated";
@@ -21,7 +23,12 @@ function RootNavigation() {
   const headerTintColor = useResolveClassNames("text-tab-active").color as string;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: headerStyleBackground },
+      }}>
+      <Stack.Screen name="index" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
         name="validator-detail"
@@ -40,6 +47,7 @@ function RootNavigation() {
 
 export default function Root() {
   const onLayoutRootView = useCallback(async () => {
+    await preloadEarthNightPixels();
     await setBackgroundColorAsync("#0f0f19");
     await SplashScreen.hideAsync();
   }, []);

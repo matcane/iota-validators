@@ -4,6 +4,7 @@ import { queryOptions, skipToken, type UseQueryOptions } from "@tanstack/react-q
 import { iotaClient } from "@/lib/iotaClient";
 
 import { getSystemState, getValidatorsGeo } from "./api";
+import { HistoryState } from "./store";
 import type { ValidatorGeoEntry } from "./types";
 
 export function validatorsQueryOptions() {
@@ -60,11 +61,11 @@ export function latestCheckpointQueryOptions(isSystemState: boolean, isvalidator
               status: statusByDigest.get(digest),
             }));
 
-            console.log(txsWithStatus);
+            HistoryState().ingestHistoryStream(txsWithStatus);
 
             return lastCheckpoint;
           },
-          refetchInterval: 10_000,
+          refetchInterval: 3_000,
           staleTime: 0,
         })
       : {

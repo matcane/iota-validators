@@ -4,7 +4,6 @@ import { decode } from "jpeg-js";
 export type EarthPixelBuffer = {
   width: number;
   height: number;
-  /** RGBA, length = width * height * 4 */
   data: Uint8Array;
 };
 
@@ -26,10 +25,6 @@ function flipRgbaHeightInPlace(data: Uint8Array, w: number, h: number) {
   }
 }
 
-/**
- * Dekoduje lokalny JPEG (bundlowany) do RGBA — bez sieci, raz na sesję.
- * Trzymaj wywołanie równolegle z startem apki, zanim otworzy się WebGL.
- */
 export function preloadEarthNightPixels(): Promise<EarthPixelBuffer> {
   if (cached) {
     return Promise.resolve(cached);
@@ -39,7 +34,9 @@ export function preloadEarthNightPixels(): Promise<EarthPixelBuffer> {
   }
   inflight = (async () => {
     try {
-      const asset = Asset.fromModule(require("@/assets/globe/earth-night.jpg"));
+      const asset = Asset.fromModule(
+        require("@/assets/globe/earth-blue-marble-compressed-small.jpg"),
+      );
       await asset.downloadAsync();
       const uri = asset.localUri ?? asset.uri;
       if (!uri) {
@@ -56,8 +53,6 @@ export function preloadEarthNightPixels(): Promise<EarthPixelBuffer> {
       });
       const copy = new Uint8Array(data.byteLength);
       copy.set(data);
-      // three DataTexture: flipY=false (mniej problemów z gl.pixelStorei w EXGL);
-      // odwracamy wiersze, żeby mapa była w dobrej orientacji.
       flipRgbaHeightInPlace(copy, width, height);
       cached = { width, height, data: copy };
       return cached;
