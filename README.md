@@ -32,6 +32,6 @@ yarn ios
 ```
 
 ### 4. Demo
-
-([`docs/untitled.webm`](docs/untitled.webm)):
+https://github.com/user-attachments/assets/f34434d8-2a5f-4f89-b8eb-da10902a8e45
+ 
 
