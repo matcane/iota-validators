@@ -11,7 +11,6 @@ import { useResolveClassNames } from "uniwind";
 import { preloadEarthNightPixels } from "@/lib/globe-earth-pixels";
 
 import "@/global.css";
-
 import "react-native-reanimated";
 
 SplashScreen.preventAutoHideAsync();

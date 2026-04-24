@@ -47,19 +47,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "expo-asset",
       "expo-router",
       [
-        "expo-build-properties",
-        {
-          ios: {
-            useFrameworks: "static",
-          },
-          android: {
-            enableMinifyInReleaseBuilds: true,
-            enableShrinkResourcesInReleaseBuilds: true,
-            networkInspector: false,
-          },
-        },
-      ],
-      [
         "expo-splash-screen",
         {
           image: SPLASH_ICON,
