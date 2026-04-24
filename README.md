@@ -31,3 +31,7 @@ yarn android
 yarn ios
 ```
 
+### 4. Demo
+
+([`docs/untitled.webm`](docs/untitled.webm)):
+
